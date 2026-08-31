@@ -16,6 +16,30 @@ The plugin is deliberately decoupled from the other three; the only thing bindin
 it to the server is the on-disk file contract documented in
 [`packages/plugin/README.md`](packages/plugin/README.md).
 
+## The viewer
+
+Three panes: sessions on the left (nested by parent, filterable, sortable),
+that session's captured requests in the middle, and the decoded payload on the
+right.
+
+![Three-pane viewer](docs/screenshots/three-pane.png)
+
+The system prompt is split into its constituent parts — prose, `<env>`, agent
+instruction files, MCP blocks, skill catalogs — each collapsible, so you can see
+what actually got shipped without scrolling through 40 KB of text.
+
+![System prompt breakdown](docs/screenshots/system-prompt.png)
+
+Tool definitions are listed separately with their full descriptions, which is
+usually where the token budget quietly goes.
+
+![Tool definitions](docs/screenshots/tools.png)
+
+Anything the structured view normalizes away is one click from the original
+envelope — `{ timestamp, url, body }` exactly as it went over the wire.
+
+![Raw JSON](docs/screenshots/raw-json.png)
+
 ## Getting started
 
 ```bash

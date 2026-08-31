@@ -30,6 +30,9 @@ bun-debug.log*
 .vscode/
 *.swp
 
+# Tooling scratch
+.playwright-cli/
+
 # OS
 .DS_Store
 Thumbs.db
