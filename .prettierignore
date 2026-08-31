@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Lockfiles are machine-generated
+bun.lock
+bun.lockb
+
+.idea/
+.vscode/

@@ -1,0 +1,15 @@
+{
+  "name": "@wiretap/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "echo 'shared is source-only, nothing to build'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf *.tsbuildinfo"
+  }
+}

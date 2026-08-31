@@ -1,0 +1,23 @@
+{
+  "name": "opencode-wiretap",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenCode plugin that logs raw LLM fetch request bodies to disk",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "build": "bun run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=0.13.7"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.1.49",
+    "@types/node": "^25.1.0"
+  }
+}

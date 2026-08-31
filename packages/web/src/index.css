@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   DevTools-grade log inspector. Dual-mode, dense, monospace-forward.
+   VARIANCE 2 · MOTION 2 · DENSITY 8.
+
+   Palette values live in :root (light) / .dark (dark) as raw vars, then are
+   mapped into Tailwind utilities via `@theme inline` so `bg-surface`,
+   `text-muted`, etc. resolve to the active theme at runtime.               */
+
+/* Light theme (default). Off-white surfaces, no pure #fff, AA contrast. */
+:root {
+  --base: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --elevated: #e7e7ea;
+  --border: #e2e2e7;
+  --border-strong: #cfcfd6;
+
+  --ink: #1a1a1f;
+  --muted: #55555f;
+  --faint: #83838d;
+
+  --accent: #2f6fe0;
+  --accent-dim: #b3ccf5;
+
+  --block-text: #2a2a30;
+  --block-thinking: #7c4dd6;
+  --block-tool-use: #b06f12;
+  --block-tool-result: #1f9d57;
+  --block-error: #d33f3f;
+  --block-system: #0e88a3;
+
+  /* Model badge families (readable on light surfaces). */
+  --model-opus: #b06f12;
+  --model-opus-bg: rgba(176, 111, 18, 0.12);
+  --model-sonnet: #2f6fe0;
+  --model-sonnet-bg: rgba(47, 111, 224, 0.12);
+  --model-haiku: #1f9d57;
+  --model-haiku-bg: rgba(31, 157, 87, 0.12);
+  --model-other: #55555f;
+  --model-other-bg: rgba(85, 85, 95, 0.1);
+
+  color-scheme: light;
+}
+
+/* Dark theme. Cool near-black, no pure #000. */
+.dark {
+  --base: #0a0a0b;
+  --surface: #101012;
+  --surface-2: #16161a;
+  --elevated: #1c1c21;
+  --border: #26262c;
+  --border-strong: #34343c;
+
+  --ink: #e6e6e9;
+  --muted: #9a9aa4;
+  --faint: #63636c;
+
+  --accent: #5b9dff;
+  --accent-dim: #2d4d80;
+
+  --block-text: #cdd0d6;
+  --block-thinking: #a78bfa;
+  --block-tool-use: #f5b544;
+  --block-tool-result: #4add8a;
+  --block-error: #f87171;
+  --block-system: #22d3ee;
+
+  --model-opus: #f5b544;
+  --model-opus-bg: rgba(245, 181, 68, 0.12);
+  --model-sonnet: #5b9dff;
+  --model-sonnet-bg: rgba(91, 157, 255, 0.12);
+  --model-haiku: #4add8a;
+  --model-haiku-bg: rgba(74, 216, 138, 0.12);
+  --model-other: #9a9aa4;
+  --model-other-bg: rgba(154, 154, 164, 0.12);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+
+  --color-block-text: var(--block-text);
+  --color-block-thinking: var(--block-thinking);
+  --color-block-tool-use: var(--block-tool-use);
+  --color-block-tool-result: var(--block-tool-result);
+  --color-block-error: var(--block-error);
+  --color-block-system: var(--block-system);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Log inspector: render raw characters faithfully. Geist Mono otherwise
+     fuses sequences like === != >= -> into ligature glyphs (the long bar). */
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+}
+
+/* Dense, quiet scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+  background-clip: padding-box;
+}
+
+/* Utility: tabular mono numerals for aligned data columns. */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
