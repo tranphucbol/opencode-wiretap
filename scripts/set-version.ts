@@ -33,8 +33,11 @@ for (const rel of manifests) {
   const raw = await readFile(file, "utf8");
   // Rewrite only the top-level "version" key so dependency ranges, formatting
   // and key order all survive untouched.
-  const next = raw.replace(/^(\s*"version"\s*:\s*)"[^"]*"/m, `$1"${version}"`);
-  if (next === raw) throw new Error(`no version field rewritten in ${rel}`);
+  const versionField = /^(\s*"version"\s*:\s*)"[^"]*"/m;
+  if (!versionField.test(raw)) {
+    throw new Error(`no version field found in ${rel}`);
+  }
+  const next = raw.replace(versionField, `$1"${version}"`);
   await writeFile(file, next);
   console.log(`  ${rel} → ${version}`);
 }
