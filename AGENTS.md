@@ -31,6 +31,12 @@ Target one package with `bun run --filter <pkg-name> <script>`.
 
 ## Rules
 
+- **`docs/decisions/` holds the ADRs.** When a change makes an architectural
+  decision with a real alternative, or one the next reader would otherwise
+  reopen, add the next-numbered record from `docs/decisions/TEMPLATE.md` and
+  list it in `docs/decisions/README.md`. State the rationale and consequences,
+  not only the choice. Numbers are never reused; a reversal keeps its file and
+  changes its status.
 - **Always run `bun run check` before finishing.** Both halves must pass.
 - **Touching `packages/server` means running `bun run build && bun run smoke`.**
   The viewer is published for both `bunx` and `npx`; the smoke test is the only
