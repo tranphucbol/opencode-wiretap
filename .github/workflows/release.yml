@@ -37,7 +37,11 @@ jobs:
       contents: write # create the GitHub Release
       id-token: write # npm provenance attestation
     steps:
+      # Full history and tags: the release notes are built from the commit
+      # range since the previous tag, which a shallow clone cannot see.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -108,12 +112,18 @@ jobs:
               --ignore-scripts
           done
 
+      # Notes come from the commits, not from `--generate-notes`: that lists
+      # merged pull requests, and this repo commits straight to main, so it
+      # produced an empty body for v0.1.0 and v0.1.1.
       - name: Create GitHub Release
         if: ${{ github.event_name == 'push' && !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          bun run scripts/release-notes.ts "$GITHUB_REF_NAME" > /tmp/notes.md
+          cat /tmp/notes.md
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes \
+            --notes-file /tmp/notes.md \
             ${{ steps.version.outputs.npm-tag == 'next' && '--prerelease' || '' }}
