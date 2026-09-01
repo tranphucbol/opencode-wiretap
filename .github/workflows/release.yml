@@ -1,0 +1,119 @@
+name: Release
+
+# Publishing is tag-driven and lockstep: `git tag v0.2.0 && git push --tags`
+# stamps 0.2.0 into every manifest, builds, verifies, then publishes both
+# public packages. package.json versions are never committed by hand.
+#
+# Requires the repository secret NPM_TOKEN — an npm Granular Access token with
+# read+write on `opencode-wiretap` and `opencode-wiretap-viewer`.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.2.0), no leading v"
+        required: true
+        type: string
+      dry-run:
+        description: "Build and verify, but do not publish"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # npm provenance attestation
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$VERSION' is not a valid semver" && exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Anything with a prerelease suffix goes out under the `next` tag so
+          # it never becomes the default install.
+          case "$VERSION" in
+            *-*) echo "npm-tag=next" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "npm-tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - run: bun install --frozen-lockfile
+
+      - name: Stamp version ${{ steps.version.outputs.version }}
+        run: bun run scripts/set-version.ts "${{ steps.version.outputs.version }}"
+
+      - name: Format check + typecheck
+        run: bun run check
+
+      - name: Build plugin + viewer
+        run: bun run build
+
+      - name: Smoke test viewer (bun)
+        run: bun run scripts/smoke.ts bun
+
+      - name: Smoke test viewer (node)
+        run: bun run scripts/smoke.ts node
+
+      # Already built above, so scripts are skipped to publish the exact
+      # artifacts that were just verified rather than rebuilding them.
+      - name: Publish packages
+        if: ${{ !inputs.dry-run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          NPM_TAG: ${{ steps.version.outputs.npm-tag }}
+        run: |
+          set -euo pipefail
+          for pkg in opencode-wiretap opencode-wiretap-viewer; do
+            if npm view "$pkg@$VERSION" version >/dev/null 2>&1; then
+              echo "::notice::$pkg@$VERSION already on npm — skipping"
+              continue
+            fi
+            echo "publishing $pkg@$VERSION (tag $NPM_TAG)"
+            npm publish \
+              --workspace "$pkg" \
+              --access public \
+              --provenance \
+              --tag "$NPM_TAG" \
+              --ignore-scripts
+          done
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'push' && !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            ${{ steps.version.outputs.npm-tag == 'next' && '--prerelease' || '' }}

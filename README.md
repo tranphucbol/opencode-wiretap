@@ -35,7 +35,28 @@ byte for byte as it was serialized.
 
 ## Getting started
 
-Build the plugin and point OpenCode at it, so there's something to look at:
+Add the plugin so there's something to look at:
+
+```jsonc
+// ~/.config/opencode/opencode.jsonc
+{ "plugin": ["opencode-wiretap"] }
+```
+
+Restart OpenCode, send a message, then open the viewer:
+
+```bash
+bunx opencode-wiretap-viewer      # or: npx opencode-wiretap-viewer
+```
+
+That's one process on <http://localhost:3001> serving both the UI and its API.
+
+```
+  -p, --port <n>       port to listen on            (env PORT / API_PORT)
+  -l, --log-dir <dir>  wiretap capture directory    (env LOG_DIR)
+      --db <file>      OpenCode SQLite database     (env OPENCODE_DB)
+```
+
+### From source
 
 ```bash
 bun install
@@ -43,11 +64,8 @@ bun run --filter opencode-wiretap build
 ```
 
 ```jsonc
-// ~/.config/opencode/opencode.jsonc
 { "plugin": ["/absolute/path/to/opencode-wiretap/packages/plugin"] }
 ```
-
-Restart OpenCode, send a message, then start the viewer:
 
 ```bash
 bun run dev          # Express API on :3001 + Vite on :5173
@@ -57,11 +75,16 @@ bun run dev          # Express API on :3001 + Vite on :5173
 
 ```
 packages/
-├─ plugin/   opencode-wiretap    OpenCode plugin, writes captured requests to disk
-├─ shared/   @wiretap/shared     Wire types + provider-shape normalizers
-├─ server/   @wiretap/server     Express API, reads the log dir + OpenCode's SQLite
-└─ web/      @wiretap/web        React + Vite three-pane viewer
+├─ plugin/   opencode-wiretap         published  OpenCode plugin, writes captures to disk
+├─ shared/   @wiretap/shared          private    Wire types + provider-shape normalizers
+├─ server/   opencode-wiretap-viewer  published  Express API + the CLI you actually run
+└─ web/      @wiretap/web             private    React + Vite three-pane viewer
 ```
+
+Two packages ship to npm. `opencode-wiretap-viewer` is the whole viewer: its
+build bundles the server and `@wiretap/shared` into one file and carries the web
+build alongside as `dist/web`, which the server serves with an SPA fallback. That
+is why `server` is the one package allowed to reach across into `web`.
 
 Traffic moves one way: **plugin writes JSON files → server reads them → web
 renders them.**
@@ -82,7 +105,8 @@ have to change the other.
 | `bun run dev:server`   | API only                                                              |
 | `bun run dev:web`      | Vite only                                                             |
 | `bun run server`       | API without watch                                                     |
-| `bun run build`        | Builds every package (web bundle + plugin `dist/`)                    |
+| `bun run build`        | Builds the two publishable packages (viewer build pulls in web)       |
+| `bun run smoke`        | Boots the built viewer under Bun and Node and hits it over HTTP       |
 | `bun run typecheck`    | `tsc --noEmit` across the root scripts and all four packages          |
 | `bun run format`       | Prettier `--write` over the whole workspace                           |
 | `bun run format:check` | Prettier `--check`, non-mutating, for CI                              |
@@ -102,16 +126,44 @@ wrong place.
 | Variable      | Default                               | Used by                                |
 | ------------- | ------------------------------------- | -------------------------------------- |
 | `LOG_DIR`     | `~/.config/opencode/logs/wiretap`     | server                                 |
-| `API_PORT`    | `3001`                                | server, web (Vite proxy target)        |
+| `PORT`        | `3001`                                | server                                 |
+| `API_PORT`    | `3001`                                | server (fallback), web (Vite proxy)    |
 | `OPENCODE_DB` | `~/.local/share/opencode/opencode.db` | server (read-only, for session titles) |
+
+CLI flags win over environment variables, which win over the defaults.
+
+## Releasing
+
+Versions are never committed. Tag, and CI does the rest:
+
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+`.github/workflows/release.yml` stamps `0.2.0` into every manifest, runs
+`check` + `build` + the Bun and Node smoke tests, publishes both public packages
+with npm provenance, and opens a GitHub Release. Every package moves in lockstep.
+A tag like `v0.3.0-rc.1` publishes under the `next` dist-tag instead of `latest`.
+Re-running is safe — versions already on npm are skipped.
+
+Requires one repository secret, `NPM_TOKEN`: an npm **Granular Access** token
+with read+write on `opencode-wiretap` and `opencode-wiretap-viewer`.
 
 ## Two things that will trip you up
 
 **`shared` has no build step, and shouldn't get one.** Its `exports` map points
 straight at `./src/index.ts`. Bun runs the server's TypeScript as-is and Vite
 transpiles the symlinked workspace source, so there's no intermediate `dist` sitting
-around going stale. `plugin` is the only package that emits JavaScript, and only
-because OpenCode loads it compiled.
+around going stale. `plugin` and `server` emit JavaScript only because they are
+published — OpenCode loads the plugin compiled, and the viewer has to run on a
+machine with no workspace.
 
-**The server needs Bun, not Node.** `packages/server/src/db.ts` uses `bun:sqlite`
-to read session titles out of OpenCode's own database.
+**Development needs Bun; the published viewer does not.** Session titles come
+from OpenCode's own SQLite database, and `packages/server/src/sqlite.ts` picks a
+backend at runtime: `bun:sqlite` under Bun, `node:sqlite` under Node 22.13+,
+and no titles at all if neither is available. Everything else still works.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Both published packages carry their own copy, so
+the license travels with the tarball.

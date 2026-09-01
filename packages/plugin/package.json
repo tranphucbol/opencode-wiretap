@@ -3,14 +3,37 @@
   "version": "0.1.0",
   "type": "module",
   "description": "OpenCode plugin that logs raw LLM fetch request bodies to disk",
+  "license": "MIT",
+  "author": "tranphucbol",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tranphucbol/opencode-wiretap.git",
+    "directory": "packages/plugin"
+  },
+  "homepage": "https://github.com/tranphucbol/opencode-wiretap#readme",
+  "bugs": "https://github.com/tranphucbol/opencode-wiretap/issues",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "wiretap",
+    "llm",
+    "debugging"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "clean": "rm -rf dist *.tsbuildinfo",
     "build": "bun run clean && tsc -p tsconfig.json",
+    "prepack": "bun run build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {

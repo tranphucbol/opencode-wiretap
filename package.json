@@ -2,16 +2,18 @@
   "name": "wiretap",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "dev": "bun run scripts/dev.ts",
-    "dev:server": "bun run --filter @wiretap/server dev",
+    "dev:server": "bun run --filter opencode-wiretap-viewer dev",
     "dev:web": "bun run --filter @wiretap/web dev",
-    "server": "bun run --filter @wiretap/server start",
-    "build": "bun run --filter '*' build",
+    "server": "bun run --filter opencode-wiretap-viewer start",
+    "build": "bun run --filter opencode-wiretap build && bun run --filter opencode-wiretap-viewer build",
+    "smoke": "bun run scripts/smoke.ts bun && bun run scripts/smoke.ts node",
     "typecheck": "tsc -p tsconfig.json --noEmit && bun run --filter '*' typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

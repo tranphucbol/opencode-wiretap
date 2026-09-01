@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # The viewer is published for `npx` as well as `bunx`, so the Node path
+      # through the SQLite adapter has to be exercised on every run.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: bun install --frozen-lockfile
+
+      - name: Format check + typecheck
+        run: bun run check
+
+      - name: Build plugin + viewer
+        run: bun run build
+
+      - name: Smoke test viewer (bun)
+        run: bun run scripts/smoke.ts bun
+
+      - name: Smoke test viewer (node)
+        run: bun run scripts/smoke.ts node
+
+      # Catches a missing `files` entry or an unpublishable manifest before a
+      # tag is cut, when it is still cheap to fix.
+      - name: Verify publishable tarballs
+        run: |
+          npm pack --dry-run --ignore-scripts --workspace opencode-wiretap
+          npm pack --dry-run --ignore-scripts --workspace opencode-wiretap-viewer

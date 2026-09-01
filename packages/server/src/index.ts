@@ -1,23 +1,37 @@
 import express from "express";
 import fs from "node:fs/promises";
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
-import os from "node:os";
+import { fileURLToPath } from "node:url";
 import type {
   SessionSummary,
   RequestSummary,
   CapturedRequest,
 } from "@wiretap/shared";
 import { getRequestMessages } from "@wiretap/shared";
-import { getSessionMeta, dbAvailable, DB_PATH } from "./db.ts";
+import { getSessionMeta, dbAvailable, dbPath } from "./db.ts";
+import { parseArgs, USAGE, type Options } from "./config.ts";
 
-const DEFAULT_LOG_DIR = path.join(
-  os.homedir(),
-  ".config/opencode/logs/wiretap",
-);
+/** Parse CLI options, printing usage and exiting on `--help` or bad input. */
+function resolveOptions(): Options {
+  try {
+    const parsed = parseArgs(process.argv.slice(2));
+    if (parsed !== "help") return parsed;
+    process.stdout.write(USAGE);
+  } catch (err) {
+    process.stderr.write(`${(err as Error).message}\n\n${USAGE}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
 
-const LOG_DIR = path.resolve(process.env.LOG_DIR ?? DEFAULT_LOG_DIR);
-const PORT = Number(process.env.API_PORT ?? 3001);
+const { logDir: LOG_DIR, port: PORT } = resolveOptions();
+
+/**
+ * Static web build, shipped next to the bundled entry as `dist/web`. Absent
+ * when running from source in dev — Vite serves the UI and proxies /api.
+ */
+const WEB_DIR = fileURLToPath(new URL("./web", import.meta.url));
 
 // Filenames look like: 2026-07-03T06-09-01-148Z_0001.json
 const FILE_RE = /^([0-9TZ:.\-]+)_(\d+)\.json$/;
@@ -83,7 +97,7 @@ app.get("/api/sessions", async (_req, res) => {
     );
 
     // Enrich with titles from OpenCode's DB (single batched, indexed lookup).
-    const meta = getSessionMeta(sessions.map((s) => s.id));
+    const meta = await getSessionMeta(sessions.map((s) => s.id));
     for (const s of sessions) {
       const m = meta.get(s.id);
       if (m) {
@@ -165,11 +179,30 @@ app.get("/api/sessions/:id/:file", (req, res) => {
   stream.pipe(res);
 });
 
-app.get("/api/config", (_req, res) => {
-  res.json({ logDir: LOG_DIR, dbPath: DB_PATH, dbFound: dbAvailable() });
+app.get("/api/config", async (_req, res) => {
+  res.json({
+    logDir: LOG_DIR,
+    dbPath: dbPath(),
+    dbFound: await dbAvailable(),
+  });
 });
 
+// Unmatched API routes must 404 as JSON, never fall through to the SPA.
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "not found" });
+});
+
+// Serve the bundled web build, with SPA fallback. Skipped in dev.
+const webBundled = existsSync(path.join(WEB_DIR, "index.html"));
+if (webBundled) {
+  app.use(express.static(WEB_DIR, { index: false }));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(WEB_DIR, "index.html"));
+  });
+}
+
 app.listen(PORT, () => {
-  console.log(`[wiretap] API on http://localhost:${PORT}`);
+  const url = `http://localhost:${PORT}`;
+  console.log(`[wiretap] ${webBundled ? "viewer" : "API"} on ${url}`);
   console.log(`[wiretap] LOG_DIR = ${LOG_DIR}`);
 });
