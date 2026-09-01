@@ -10,7 +10,9 @@ import {
   ModelBadge,
   StatusChip,
   CostChip,
+  Select,
 } from "./ui.tsx";
+import type { SelectOption } from "./ui.tsx";
 
 /** Hover text breaking a row's cost into the buckets that produced it. */
 function costTitle(r: RequestSummary): string {
@@ -67,6 +69,20 @@ export function RequestsPane({
     for (const r of requests) if (r.model) set.add(r.model);
     return [...set].sort();
   }, [requests]);
+
+  // The menu carries the same badge the rows do, so filtering by model looks
+  // like the thing being filtered.
+  const modelOptions = useMemo<SelectOption<string>[]>(
+    () => [
+      { value: "", label: `all models (${requests.length})` },
+      ...models.map((m) => ({
+        value: m,
+        label: shortModel(m),
+        render: <ModelBadge label={shortModel(m)} family={modelFamily(m)} />,
+      })),
+    ],
+    [models, requests.length],
+  );
 
   const rows = useMemo(() => {
     const filtered = modelFilter
@@ -135,18 +151,14 @@ export function RequestsPane({
 
       {models.length > 1 && (
         <div className="border-b border-border px-3 py-2">
-          <select
+          <Select
             value={modelFilter}
-            onChange={(e) => setModelFilter(e.target.value)}
-            className="w-full rounded border border-border bg-base px-1.5 py-1 text-[13px] text-muted focus:border-accent-dim focus:outline-none"
-          >
-            <option value="">all models ({requests.length})</option>
-            {models.map((m) => (
-              <option key={m} value={m}>
-                {shortModel(m)}
-              </option>
-            ))}
-          </select>
+            onChange={setModelFilter}
+            title="Filter by model"
+            ariaLabel="Filter by model"
+            className="w-full"
+            options={modelOptions}
+          />
         </div>
       )}
 

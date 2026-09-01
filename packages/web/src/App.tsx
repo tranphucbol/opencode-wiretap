@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pulse, Sun, Moon } from "@phosphor-icons/react";
+import { Pulse, Sun, Moon, Timer } from "@phosphor-icons/react";
 import { api } from "./api.ts";
 import { useTheme } from "./lib/theme.ts";
+import {
+  useAutoFetch,
+  AUTO_FETCH_INTERVALS,
+  type AutoFetchInterval,
+} from "./lib/autoFetch.ts";
 import type {
   SessionSummary,
   RequestSummary,
@@ -10,9 +15,18 @@ import type {
 import { SessionsPane } from "./components/SessionsPane.tsx";
 import { RequestsPane } from "./components/RequestsPane.tsx";
 import { DetailPane } from "./components/DetailPane.tsx";
+import { Select, type SelectOption } from "./components/ui.tsx";
+
+const INTERVAL_OPTIONS: readonly SelectOption<AutoFetchInterval>[] =
+  AUTO_FETCH_INTERVALS.map((ms) => ({
+    value: ms,
+    label: ms % 60000 === 0 ? `${ms / 60000}m` : `${ms / 1000}s`,
+  }));
 
 export function App() {
   const [theme, toggleTheme] = useTheme();
+  const [autoFetch, autoFetchInterval, setAutoFetch, setAutoFetchInterval] =
+    useAutoFetch();
   const [logDir, setLogDir] = useState<string>("");
   const [dbFound, setDbFound] = useState<boolean>(true);
   const [pricingFound, setPricingFound] = useState<boolean>(true);
@@ -97,6 +111,24 @@ export function App() {
     };
   }, [loadSessions]);
 
+  // Periodically refresh the sessions list (and the currently open session's
+  // requests, if any) while auto-fetch is on. Off by default; both the
+  // toggle and interval choice persist across reloads via useAutoFetch.
+  useEffect(() => {
+    if (!autoFetch) return;
+    const timer = setInterval(() => {
+      void loadSessions();
+      if (selectedSession) void loadRequests(selectedSession);
+    }, autoFetchInterval);
+    return () => clearInterval(timer);
+  }, [
+    autoFetch,
+    autoFetchInterval,
+    loadSessions,
+    loadRequests,
+    selectedSession,
+  ]);
+
   const onSelectSession = useCallback(
     (id: string) => {
       setSelectedSession(id);
@@ -171,6 +203,31 @@ export function App() {
           <span className="tnum text-[13px] text-faint">
             {sessions.length} sessions
           </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setAutoFetch(!autoFetch)}
+            title={
+              autoFetch
+                ? "Auto-fetch on — click to disable"
+                : "Auto-fetch off — click to enable"
+            }
+            aria-pressed={autoFetch}
+            className={`flex items-center gap-1 rounded p-1.5 transition-colors hover:bg-elevated hover:text-ink active:translate-y-px ${
+              autoFetch ? "text-accent" : "text-muted"
+            }`}
+          >
+            <Timer size={15} weight="bold" />
+          </button>
+          {autoFetch && (
+            <Select
+              value={autoFetchInterval}
+              onChange={setAutoFetchInterval}
+              title="Auto-fetch interval"
+              ariaLabel="Auto-fetch interval"
+              options={INTERVAL_OPTIONS}
+            />
+          )}
         </div>
         <button
           onClick={toggleTheme}

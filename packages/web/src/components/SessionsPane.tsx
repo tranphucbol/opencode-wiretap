@@ -5,12 +5,23 @@ import {
   CaretRight,
   CaretDown,
   ArrowElbowDownRight,
+  ArrowsInLineVertical,
+  ArrowsOutLineVertical,
 } from "@phosphor-icons/react";
 import type { SessionSummary } from "@wiretap/shared";
 import { formatRelative, shortId } from "../lib/format.ts";
-import { Spinner, ErrorState, CostChip } from "./ui.tsx";
+import { Spinner, ErrorState, CostChip, Select } from "./ui.tsx";
+import type { SelectOption } from "./ui.tsx";
 
 type Sort = "recent" | "count" | "cost" | "id" | "title";
+
+const SORTS: readonly SelectOption<Sort>[] = [
+  { value: "recent", label: "recent" },
+  { value: "count", label: "count" },
+  { value: "cost", label: "cost" },
+  { value: "title", label: "title" },
+  { value: "id", label: "id" },
+];
 
 interface TreeNode {
   session: SessionSummary;
@@ -110,6 +121,20 @@ export function SessionsPane({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const roots = useMemo(() => buildForest(sessions), [sessions]);
+  const collapsibleIds = useMemo(() => {
+    const ids: string[] = [];
+    const collect = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.children.length > 0) ids.push(node.session.id);
+        collect(node.children);
+      }
+    };
+    collect(roots);
+    return ids;
+  }, [roots]);
+  const allCollapsed =
+    collapsibleIds.length > 0 &&
+    collapsibleIds.every((id) => collapsed.has(id));
 
   const rows = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -151,6 +176,8 @@ export function SessionsPane({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  const toggleAll = () =>
+    setCollapsed(allCollapsed ? new Set() : new Set(collapsibleIds));
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r border-border bg-surface">
@@ -161,13 +188,32 @@ export function SessionsPane({
           </span>
           <span className="tnum text-[13px] text-faint">{sessions.length}</span>
         </div>
-        <button
-          onClick={onRefresh}
-          title="Refresh"
-          className="rounded p-1 text-muted transition-colors hover:bg-elevated hover:text-ink active:translate-y-px"
-        >
-          <ArrowClockwise size={14} weight="bold" />
-        </button>
+        <div className="flex items-center gap-1">
+          {collapsibleIds.length > 0 && (
+            <button
+              onClick={toggleAll}
+              title={
+                allCollapsed
+                  ? "Expand all session trees"
+                  : "Collapse all session trees"
+              }
+              className="rounded p-1 text-muted transition-colors hover:bg-elevated hover:text-ink active:translate-y-px"
+            >
+              {allCollapsed ? (
+                <ArrowsOutLineVertical size={14} weight="bold" />
+              ) : (
+                <ArrowsInLineVertical size={14} weight="bold" />
+              )}
+            </button>
+          )}
+          <button
+            onClick={onRefresh}
+            title="Refresh"
+            className="rounded p-1 text-muted transition-colors hover:bg-elevated hover:text-ink active:translate-y-px"
+          >
+            <ArrowClockwise size={14} weight="bold" />
+          </button>
+        </div>
       </header>
 
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -183,17 +229,13 @@ export function SessionsPane({
             className="w-full rounded border border-border bg-base py-1 pr-2 pl-7 font-mono text-[13px] text-ink placeholder:text-faint focus:border-accent-dim focus:outline-none"
           />
         </div>
-        <select
+        <Select
           value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-          className="rounded border border-border bg-base px-1.5 py-1 text-[13px] text-muted focus:border-accent-dim focus:outline-none"
-        >
-          <option value="recent">recent</option>
-          <option value="count">count</option>
-          <option value="cost">cost</option>
-          <option value="title">title</option>
-          <option value="id">id</option>
-        </select>
+          onChange={setSort}
+          title="Sort sessions"
+          ariaLabel="Sort sessions"
+          options={SORTS}
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

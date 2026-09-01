@@ -33,6 +33,9 @@ bun-debug.log*
 # Tooling scratch
 .playwright-cli/
 
+# Local planning scratch
+docs/plans/
+
 # OS
 .DS_Store
 Thumbs.db
