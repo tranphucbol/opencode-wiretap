@@ -55,7 +55,4 @@ Target one package with `bun run --filter <pkg-name> <script>`.
 
 ## Releasing
 
-`git tag vX.Y.Z && git push origin vX.Y.Z` → `.github/workflows/release.yml`
-stamps the version, runs check/build/smoke, publishes both packages with npm
-provenance, and cuts a GitHub Release. Needs the `NPM_TOKEN` repository secret.
-Prerelease tags (`v1.0.0-rc.1`) publish under the `next` dist-tag.
+Guide: `docs/RELEASING.md`.
