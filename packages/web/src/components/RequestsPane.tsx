@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowClockwise } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowClockwise, Check, Copy } from "@phosphor-icons/react";
 import type { RequestSummary } from "@wiretap/shared";
 import { formatBytes, formatTime, shortId } from "../lib/format.ts";
 import { modelFamily, shortModel } from "../lib/model.ts";
@@ -23,6 +23,21 @@ export function RequestsPane({
   onRefresh: () => void;
 }) {
   const [modelFilter, setModelFilter] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+
+  // Clear the "copied" flash on unmount or when the session changes.
+  useEffect(() => setCopied(false), [sessionId]);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  async function copySessionId() {
+    if (!sessionId) return;
+    await navigator.clipboard.writeText(sessionId);
+    setCopied(true);
+  }
 
   const models = useMemo(() => {
     const set = new Set<string>();
@@ -51,7 +66,7 @@ export function RequestsPane({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r border-border bg-surface">
       <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex min-w-0 items-baseline gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold tracking-wide text-ink">
             REQUESTS
           </span>
@@ -61,6 +76,22 @@ export function RequestsPane({
           >
             {shortId(sessionId)}
           </span>
+          <button
+            onClick={copySessionId}
+            title={copied ? "Copied session id" : "Copy session id"}
+            aria-label="Copy session id"
+            className="shrink-0 rounded p-1 text-muted transition-colors hover:bg-elevated hover:text-ink active:translate-y-px"
+          >
+            {copied ? (
+              <Check
+                size={12}
+                weight="bold"
+                className="text-block-tool-result"
+              />
+            ) : (
+              <Copy size={12} />
+            )}
+          </button>
         </div>
         <button
           onClick={onRefresh}

@@ -38,6 +38,16 @@
   --model-sonnet-bg: rgba(47, 111, 224, 0.12);
   --model-haiku: #1f9d57;
   --model-haiku-bg: rgba(31, 157, 87, 0.12);
+  --model-gpt: #0d8b8b;
+  --model-gpt-bg: rgba(13, 139, 139, 0.12);
+  --model-gpt-codex: #7c4dd6;
+  --model-gpt-codex-bg: rgba(124, 77, 214, 0.12);
+  --model-gpt-sol: #a81f8f;
+  --model-gpt-sol-bg: rgba(168, 31, 143, 0.12);
+  --model-gpt-terra: #6b8e0f;
+  --model-gpt-terra-bg: rgba(107, 142, 15, 0.12);
+  --model-gpt-luna: #0284c7;
+  --model-gpt-luna-bg: rgba(2, 132, 199, 0.12);
   --model-other: #55555f;
   --model-other-bg: rgba(85, 85, 95, 0.1);
 
@@ -73,6 +83,16 @@
   --model-sonnet-bg: rgba(91, 157, 255, 0.12);
   --model-haiku: #4add8a;
   --model-haiku-bg: rgba(74, 216, 138, 0.12);
+  --model-gpt: #2dd4bf;
+  --model-gpt-bg: rgba(45, 212, 191, 0.12);
+  --model-gpt-codex: #a78bfa;
+  --model-gpt-codex-bg: rgba(167, 139, 250, 0.12);
+  --model-gpt-sol: #e879f9;
+  --model-gpt-sol-bg: rgba(232, 121, 249, 0.12);
+  --model-gpt-terra: #a3e635;
+  --model-gpt-terra-bg: rgba(163, 230, 53, 0.12);
+  --model-gpt-luna: #38bdf8;
+  --model-gpt-luna-bg: rgba(56, 189, 248, 0.12);
   --model-other: #9a9aa4;
   --model-other-bg: rgba(154, 154, 164, 0.12);
 
