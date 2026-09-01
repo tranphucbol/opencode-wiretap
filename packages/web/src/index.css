@@ -205,6 +205,13 @@ body {
 .jv-label-clickable:hover {
   text-decoration: underline;
 }
+/* Tool arguments carry whole files as one string. Wrap them instead of
+   letting the tree scroll sideways forever. */
+.jv-string,
+.jv-other {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .jv-string {
   color: var(--color-block-tool-result);
 }
@@ -244,4 +251,146 @@ body {
   content: "…";
   margin-left: 0.3em;
   color: var(--color-faint);
+}
+
+/* ── Rendered markdown (assistant prose) ─────────────────────────────────
+   Scoped to `.md` so the raw view stays a plain <pre>. Sizes match the
+   surrounding block text; only structure is added, never chrome. */
+.md {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-block-text);
+  overflow-wrap: anywhere;
+}
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md pre,
+.md table {
+  margin: 0 0 0.6em;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 1em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-ink);
+}
+.md h1 {
+  font-size: 1.3em;
+}
+.md h2 {
+  font-size: 1.18em;
+}
+.md h3 {
+  font-size: 1.08em;
+}
+.md h4,
+.md h5,
+.md h6 {
+  font-size: 1em;
+}
+.md ul,
+.md ol {
+  padding-left: 1.4em;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li {
+  margin: 0.15em 0;
+}
+.md li > p {
+  margin: 0;
+}
+.md li::marker {
+  color: var(--color-faint);
+}
+.md a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md strong {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.md em {
+  font-style: italic;
+}
+.md del {
+  color: var(--color-faint);
+  text-decoration: line-through;
+}
+.md hr {
+  margin: 0.9em 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+}
+.md blockquote {
+  padding-left: 0.8em;
+  border-left: 2px solid var(--color-border-strong);
+  color: var(--color-muted);
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0.1em 0.32em;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+  color: var(--color-block-tool-use);
+}
+.md pre {
+  padding: 0.6em 0.7em;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface-2);
+  overflow-x: auto;
+}
+.md pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-block-text);
+  white-space: pre;
+}
+.md table {
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  padding: 0.25em 0.6em;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+.md th {
+  background: var(--color-surface-2);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.md input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: var(--color-accent);
+}
+.md img {
+  max-width: 100%;
 }

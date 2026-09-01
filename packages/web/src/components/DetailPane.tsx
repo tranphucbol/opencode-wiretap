@@ -29,7 +29,9 @@ import {
   type SystemBlock,
 } from "@wiretap/shared";
 import { formatBytes, formatTime, formatUsd } from "../lib/format.ts";
+import { asJsonTree, jsonText } from "../lib/json.ts";
 import { wiretapJsonStyle } from "../lib/jsonViewStyle.ts";
+import { Markdown } from "./Markdown.tsx";
 import { modelFamily, shortModel } from "../lib/model.ts";
 import {
   isSystemPromptText,
@@ -536,7 +538,7 @@ function ResponseSection({
         )}
 
         {blocks.map((b, i) => (
-          <BlockView key={i} block={b} />
+          <BlockView key={i} block={b} role="assistant" />
         ))}
 
         {blocks.length === 0 && (
@@ -666,7 +668,7 @@ function MessageCard({
       {open && (
         <div className="flex flex-col divide-y divide-border">
           {blocks.map((b, i) => (
-            <BlockView key={i} block={b} />
+            <BlockView key={i} block={b} role={message.role} />
           ))}
         </div>
       )}
@@ -674,7 +676,7 @@ function MessageCard({
   );
 }
 
-function BlockView({ block }: { block: ContentBlock }) {
+function BlockView({ block, role }: { block: ContentBlock; role?: string }) {
   switch (block.type) {
     case "text": {
       const text = block.text ?? "";
@@ -691,15 +693,7 @@ function BlockView({ block }: { block: ContentBlock }) {
           </BlockShell>
         );
       }
-      return (
-        <BlockShell
-          icon={<TextAa size={12} weight="bold" />}
-          label="text"
-          color="var(--color-block-text)"
-        >
-          <CollapsibleText text={text} bare />
-        </BlockShell>
-      );
+      return <TextBlock text={text} markdown={role === "assistant"} />;
     }
     case "thinking":
       return (
@@ -717,17 +711,16 @@ function BlockView({ block }: { block: ContentBlock }) {
       );
     case "tool_use":
       return (
-        <BlockShell
+        <JsonBlock
           icon={<Wrench size={12} weight="bold" />}
           label={`tool_use · ${block.name ?? "?"}`}
           color="var(--color-block-tool-use)"
-        >
-          <JsonBlock value={block.input} />
-        </BlockShell>
+          value={block.input}
+        />
       );
     case "tool_result":
       return (
-        <BlockShell
+        <JsonBlock
           icon={<ArrowElbowDownRight size={12} weight="bold" />}
           label={block.is_error ? "tool_result · error" : "tool_result"}
           color={
@@ -735,36 +728,115 @@ function BlockView({ block }: { block: ContentBlock }) {
               ? "var(--color-block-error)"
               : "var(--color-block-tool-result)"
           }
-        >
-          {typeof block.content === "string" ? (
-            <CollapsibleText text={block.content} bare />
-          ) : (
-            <JsonBlock value={block.content} />
-          )}
-        </BlockShell>
+          value={block.content}
+        />
       );
     default:
       return (
-        <BlockShell
+        <JsonBlock
           icon={<TextAa size={12} weight="bold" />}
           label={block.type}
           color="var(--color-muted)"
-        >
-          <JsonBlock value={block} />
-        </BlockShell>
+          value={block}
+        />
       );
   }
+}
+
+/** A text block. Assistant prose renders as markdown, with the wire text one
+ *  click away — the rendered view is a convenience, never the record. */
+function TextBlock({ text, markdown }: { text: string; markdown: boolean }) {
+  const [rendered, setRendered] = useState(true);
+  const asMarkdown = markdown && rendered;
+
+  return (
+    <BlockShell
+      icon={<TextAa size={12} weight="bold" />}
+      label="text"
+      color="var(--color-block-text)"
+      action={
+        markdown && (
+          <ViewToggle
+            options={MD_VIEWS}
+            value={rendered ? "markdown" : "raw"}
+            onChange={(v) => setRendered(v === "markdown")}
+          />
+        )
+      }
+    >
+      {asMarkdown ? (
+        <CollapsibleBody chars={text.length}>
+          <Markdown text={text} />
+        </CollapsibleBody>
+      ) : (
+        <CollapsibleText text={text} bare />
+      )}
+    </BlockShell>
+  );
+}
+
+const MD_VIEWS = ["markdown", "raw"] as const;
+const JSON_VIEWS = ["tree", "raw"] as const;
+
+/** A JSON-shaped block — tool arguments, tool output, unknown block types.
+ *  Object-like values get a walkable tree; fragments stay text. */
+function JsonBlock({
+  icon,
+  label,
+  color,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  color: string;
+  value: unknown;
+}) {
+  const tree = useMemo(() => asJsonTree(value), [value]);
+  const text = useMemo(() => jsonText(value), [value]);
+  const [asTree, setAsTree] = useState(true);
+  const showTree = tree !== undefined && asTree;
+
+  return (
+    <BlockShell
+      icon={icon}
+      label={label}
+      color={color}
+      action={
+        tree !== undefined && (
+          <ViewToggle
+            options={JSON_VIEWS}
+            value={asTree ? "tree" : "raw"}
+            onChange={(v) => setAsTree(v === "tree")}
+          />
+        )
+      }
+    >
+      {showTree ? (
+        <CollapsibleBody chars={text.length}>
+          <JsonView
+            data={tree}
+            style={wiretapJsonStyle}
+            shouldExpandNode={allExpanded}
+          />
+        </CollapsibleBody>
+      ) : (
+        <CollapsibleText text={text} bare />
+      )}
+    </BlockShell>
+  );
 }
 
 function BlockShell({
   icon,
   label,
   color,
+  action,
   children,
 }: {
   icon: React.ReactNode;
   label: string;
   color: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -775,8 +847,70 @@ function BlockShell({
       >
         {icon}
         {label}
+        {action}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Two-way switch pinned to the right of a block header. */
+function ViewToggle<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="ml-auto flex overflow-hidden rounded border border-border text-[11px] normal-case">
+      {options.map((o) => (
+        <button
+          key={o}
+          onClick={() => onChange(o)}
+          className={`px-1.5 py-0.5 transition-colors ${
+            o === value ? "bg-elevated text-ink" : "text-faint hover:text-muted"
+          }`}
+        >
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Height-clamps rendered content that plain-text truncation cannot cut
+ *  without mangling it — a markdown tree or a JSON tree. `chars` is the
+ *  length of the same content as text, used only to decide whether to clamp. */
+function CollapsibleBody({
+  chars,
+  children,
+}: {
+  chars: number;
+  children: React.ReactNode;
+}) {
+  const long = chars > COLLAPSE_CHARS;
+  const [open, setOpen] = useState(false);
+  const clamped = long && !open;
+
+  return (
+    <div>
+      <div className={clamped ? "relative max-h-72 overflow-hidden" : ""}>
+        {children}
+        {clamped && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-b from-transparent to-surface" />
+        )}
+      </div>
+      {long && (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="mt-1 text-[12px] font-medium text-accent hover:underline"
+        >
+          {open ? "show less" : "show all"}
+        </button>
+      )}
     </div>
   );
 }
@@ -946,17 +1080,6 @@ function shortPath(p: string): string {
 function lineMeta(text: string): string {
   const lines = text ? text.split("\n").length : 0;
   return `${lines} line${lines === 1 ? "" : "s"}`;
-}
-
-function JsonBlock({ value }: { value: unknown }) {
-  const text = useMemo(() => {
-    try {
-      return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
-  }, [value]);
-  return <CollapsibleText text={text} bare />;
 }
 
 /** Re-exported for potential reuse / size labels. */

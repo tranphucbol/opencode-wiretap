@@ -4,7 +4,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "useDefineForClassFields": true,
     "jsx": "react-jsx",
-    "types": ["vite/client"]
+    // `bun` is here only for `bun:test` in the *.test.ts files; the app code
+    // itself never touches a Bun global.
+    "types": ["vite/client", "bun"]
   },
   "include": ["src", "vite.config.ts"]
 }
