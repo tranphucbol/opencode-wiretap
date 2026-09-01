@@ -18,12 +18,23 @@ import {
 } from "node:fs";
 import type { CapturedRequest, CapturedResponse } from "@wiretap/shared";
 
-export const LOG_ROOT = join(
-  process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
-  "opencode",
-  "logs",
-  "wiretap",
-);
+/**
+ * Where captures live.
+ *
+ * Resolved per call rather than once at import. It is one `join` on a path
+ * that is already being written to, and it keeps the value from depending on
+ * the moment this module happened to be evaluated — which, under a test runner
+ * that shares a module registry across files, is not something any single
+ * caller controls.
+ */
+export function logRoot(): string {
+  return join(
+    process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
+    "opencode",
+    "logs",
+    "wiretap",
+  );
+}
 
 let sequence = 0;
 
@@ -55,7 +66,7 @@ export function writeRequest(
   body: unknown,
 ): string | null {
   try {
-    const dir = join(LOG_ROOT, sessionId);
+    const dir = join(logRoot(), sessionId);
     mkdirSync(dir, { recursive: true });
 
     const now = new Date();

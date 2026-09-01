@@ -10,6 +10,7 @@ status, so the reasoning behind the reversal has something to point at.
 | 002 | [A response is stored in its request's file](002-response-in-request-file.md)                   |
 | 003 | [Cost is computed at read time, from OpenCode's price table](003-cost-computed-at-read-time.md) |
 | 004 | [Session cost totals come from a background sweep](004-session-totals-swept-in-background.md)   |
+| 005 | [Captures are pruned a session at a time](005-captures-pruned-by-session-age.md)                |
 
 `TEMPLATE.md` is the shape of a new record. Add each decision to the table
 when it is created.

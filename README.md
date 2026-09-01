@@ -143,14 +143,16 @@ wrong place.
 
 ## Environment
 
-| Variable             | Default                                | Used by                                |
-| -------------------- | -------------------------------------- | -------------------------------------- |
-| `LOG_DIR`            | `~/.config/opencode/logs/wiretap`      | server                                 |
-| `PORT`               | `3001`                                 | server                                 |
-| `API_PORT`           | `3001`                                 | server (fallback), web (Vite proxy)    |
-| `OPENCODE_DB`        | `~/.local/share/opencode/opencode.db`  | server (read-only, for session titles) |
-| `OPENCODE_MODELS`    | `~/.cache/opencode/models.json`        | server (read-only, for cost estimates) |
-| `WIRETAP_COST_CACHE` | `~/.cache/opencode-wiretap/costs.json` | server (memoised per-file costs)       |
+| Variable                 | Default                                | Used by                                             |
+| ------------------------ | -------------------------------------- | --------------------------------------------------- |
+| `LOG_DIR`                | `~/.config/opencode/logs/wiretap`      | server                                              |
+| `PORT`                   | `3001`                                 | server                                              |
+| `API_PORT`               | `3001`                                 | server (fallback), web (Vite proxy)                 |
+| `OPENCODE_DB`            | `~/.local/share/opencode/opencode.db`  | server (read-only, for session titles)              |
+| `OPENCODE_MODELS`        | `~/.cache/opencode/models.json`        | server (read-only, for cost estimates)              |
+| `WIRETAP_COST_CACHE`     | `~/.cache/opencode-wiretap/costs.json` | server (memoised per-file costs)                    |
+| `WIRETAP_RAW_MAX_BYTES`  | `1048576` (1 MiB)                      | plugin (cap on the stored raw response body)        |
+| `WIRETAP_RETENTION_DAYS` | `15`                                   | plugin (sessions expire after this long; `0` never) |
 
 CLI flags win over environment variables, which win over the defaults.
 

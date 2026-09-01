@@ -131,6 +131,32 @@ async function costOf(full: string, cat: Catalogue): Promise<number> {
 const yieldToLoop = () => new Promise<void>((r) => setImmediate(r));
 
 /**
+ * Forget captures that are no longer on disk.
+ *
+ * The plugin expires whole sessions on a retention window
+ * (docs/decisions/005-captures-pruned-by-session-age.md), so without this the
+ * cache would accumulate entries for deleted files forever — growing while the
+ * corpus it describes shrinks.
+ *
+ * Only evidence counts as evidence: a session is dropped when the walk did not
+ * find its directory, and a file when its session *was* listed and the file
+ * was not in it. A session whose `readdir` failed is left alone.
+ */
+function evict(live: Set<string>, listed: Set<string>, seen: Set<string>) {
+  for (const key of [...files.keys()]) {
+    const id = key.slice(0, key.indexOf("/"));
+    const gone = listed.has(id) ? !seen.has(key) : !live.has(id);
+    if (gone) {
+      files.delete(key);
+      dirty = true;
+    }
+  }
+  for (const id of [...totals.keys()]) {
+    if (!live.has(id)) totals.delete(id);
+  }
+}
+
+/**
  * Walk every session, costing files that are new or have changed. Safe to
  * call repeatedly; concurrent calls collapse into the running one.
  */
@@ -158,6 +184,12 @@ export async function sweep(logDir: string): Promise<void> {
     progress.total = 0;
     let sinceSave = 0;
 
+    const live = new Set(dirs);
+    /** Sessions whose files were successfully enumerated this sweep. */
+    const listed = new Set<string>();
+    /** Cache keys observed this sweep. */
+    const seen = new Set<string>();
+
     for (const id of dirs) {
       const dir = path.join(logDir, id);
       let names: string[];
@@ -166,11 +198,13 @@ export async function sweep(logDir: string): Promise<void> {
       } catch {
         continue;
       }
+      listed.add(id);
       progress.total += names.length;
 
       let total = 0;
       for (const name of names) {
         const key = `${id}/${name}`;
+        seen.add(key);
         const full = path.join(dir, name);
         let usd = 0;
         try {
@@ -199,6 +233,8 @@ export async function sweep(logDir: string): Promise<void> {
         await saveCache();
       }
     }
+
+    evict(live, listed, seen);
     await saveCache();
   } finally {
     sweeping = false;

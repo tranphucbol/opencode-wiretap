@@ -61,6 +61,22 @@ Capture is fire-and-forget. The response is handed back to OpenCode
 immediately and drained on a detached promise, so nothing here can slow down
 or fail a real request.
 
+## Retention
+
+Captures are deleted after **15 days**. Once per OpenCode start the plugin
+sweeps the log root and removes every session directory that has not been
+written to inside the window.
+
+```bash
+WIRETAP_RETENTION_DAYS=30   # keep a month instead
+WIRETAP_RETENTION_DAYS=0    # keep everything, forever
+```
+
+Sessions expire whole. A conversation missing its opening turns is worse than
+no conversation at all, so a long-running session is kept in full until its
+_last_ capture falls outside the window, then dropped in one go. See
+`docs/decisions/005-captures-pruned-by-session-age.md`.
+
 ## How it works
 
 Two interception layers ensure coverage across all providers:

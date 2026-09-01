@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { beginCapture, setCurrentSession } from "./capture.ts";
+import { pruneOldSessions } from "./prune.ts";
 
 /**
  * Record a call, if it is one we have not already recorded, and tee whatever
@@ -20,7 +21,27 @@ async function through(
   return capture ? capture.attach(res) : res;
 }
 
+/**
+ * Sweep expired sessions off disk, once, after init has returned.
+ *
+ * Deferred rather than awaited: the sweep stats every session directory, and
+ * startup should not wait on that. The timer is unref'd where the runtime
+ * supports it so a short-lived process is never held open by it.
+ */
+function scheduleRetentionSweep(): void {
+  try {
+    const timer = setTimeout(() => pruneOldSessions(), 0) as unknown as {
+      unref?: () => void;
+    };
+    timer?.unref?.();
+  } catch (_e) {
+    // Housekeeping is never worth failing a plugin load over.
+  }
+}
+
 const plugin: Plugin = async (_ctx) => {
+  scheduleRetentionSweep();
+
   // --- Layer 1: globalThis.fetch wrapper ---
   // Catches most providers since AI SDK calls ultimately go through fetch.
   const originalFetch = globalThis.fetch;
