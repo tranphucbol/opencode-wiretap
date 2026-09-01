@@ -17,6 +17,7 @@ import {
   ArrowUDownLeft,
   Warning,
 } from "@phosphor-icons/react";
+import { allExpanded, collapseAllNested, JsonView } from "react-json-view-lite";
 import {
   getRequestMessages,
   getRequestSystem,
@@ -28,6 +29,7 @@ import {
   type SystemBlock,
 } from "@wiretap/shared";
 import { formatBytes, formatTime, formatUsd } from "../lib/format.ts";
+import { wiretapJsonStyle } from "../lib/jsonViewStyle.ts";
 import { modelFamily, shortModel } from "../lib/model.ts";
 import {
   isSystemPromptText,
@@ -65,6 +67,7 @@ export function DetailPane({
   cost: CostBreakdown | null;
 }) {
   const [raw, setRaw] = useState(false);
+  const [rawCollapsed, setRawCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [highlight, setHighlight] = useState<number | null>(null);
@@ -74,6 +77,7 @@ export function DetailPane({
   // Reset view mode + collapse state when switching files.
   useEffect(() => {
     setRaw(false);
+    setRawCollapsed(false);
     setCollapsed(new Set());
     setHighlight(null);
     jumpPtr.current = 0;
@@ -210,6 +214,21 @@ export function DetailPane({
               )}
             </button>
           )}
+          {raw && data && (
+            <button
+              onClick={() => setRawCollapsed((c) => !c)}
+              title={
+                rawCollapsed ? "Expand all nodes" : "Collapse nested nodes"
+              }
+              className="flex items-center justify-center rounded border border-border p-1.5 text-muted transition-colors hover:bg-elevated hover:text-ink active:translate-y-px"
+            >
+              {rawCollapsed ? (
+                <ArrowsOutLineVertical size={14} weight="bold" />
+              ) : (
+                <ArrowsInLineVertical size={14} weight="bold" />
+              )}
+            </button>
+          )}
           {raw && (
             <button
               onClick={copyRaw}
@@ -244,9 +263,13 @@ export function DetailPane({
         {error && <ErrorState message={error} />}
 
         {!loading && !error && data && raw && (
-          <pre className="p-4 font-mono text-[13px] leading-relaxed break-words whitespace-pre-wrap text-block-text">
-            {rawJson}
-          </pre>
+          <div className="p-3">
+            <JsonView
+              data={data}
+              style={wiretapJsonStyle}
+              shouldExpandNode={rawCollapsed ? collapseAllNested : allExpanded}
+            />
+          </div>
         )}
 
         {!loading && !error && data && !raw && (

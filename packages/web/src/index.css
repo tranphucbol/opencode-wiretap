@@ -173,3 +173,75 @@ body {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Raw JSON tree (react-json-view-lite) ────────────────────────────────
+   Full class-name override — see lib/jsonViewStyle.ts — so the tree reads
+   off our own tokens and needs no second light/dark theme object. */
+.jv-container {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.jv-children {
+  margin: 0;
+  padding: 0 0 0 1.1em;
+  border-left: 1px solid var(--color-border);
+}
+.jv-row {
+  display: block;
+}
+.jv-label {
+  font-weight: 600;
+  color: var(--color-block-system);
+}
+.jv-label::after {
+  content: ":";
+  margin-right: 0.4em;
+  color: var(--color-faint);
+}
+.jv-label-clickable {
+  cursor: pointer;
+}
+.jv-label-clickable:hover {
+  text-decoration: underline;
+}
+.jv-string {
+  color: var(--color-block-tool-result);
+}
+.jv-number {
+  color: var(--color-accent);
+}
+.jv-boolean {
+  color: var(--color-block-tool-use);
+}
+.jv-null {
+  color: var(--color-faint);
+  font-style: italic;
+}
+.jv-other {
+  color: var(--color-block-text);
+}
+.jv-punctuation {
+  color: var(--color-faint);
+}
+.jv-icon {
+  display: inline-block;
+  margin-right: 0.35em;
+  color: var(--color-faint);
+  cursor: pointer;
+  user-select: none;
+}
+.jv-icon:hover {
+  color: var(--color-muted);
+}
+.jv-icon-expand::after {
+  content: "▸";
+}
+.jv-icon-collapse::after {
+  content: "▾";
+}
+.jv-collapsed::after {
+  content: "…";
+  margin-left: 0.3em;
+  color: var(--color-faint);
+}
