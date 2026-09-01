@@ -13,7 +13,12 @@ const LOG_ROOT = join(
 let sequence = 0;
 let currentSessionId = "unknown";
 
-/** Set of request bodies already logged by the global wrapper (avoid double-logging). */
+/**
+ * Request inits already seen. Both wrapper layers run on the same request —
+ * `chat.params` resolves its inner fetch to the already-wrapped
+ * `globalThis.fetch` — and forward the *same* init object down the chain, so
+ * init identity is what distinguishes a real request from a second pass.
+ */
 const logged = new WeakSet<object>();
 
 function getHeader(headers: any, name: string): string | null {
@@ -56,11 +61,11 @@ function writeLog(sessionId: string, url: string, body: string): void {
 
 function tryLog(init: any, input: any): void {
   if (!init?.body || typeof init.body !== "string") return;
+  if (logged.has(init)) return;
+  logged.add(init);
   try {
     const body = JSON.parse(init.body);
     if (!isAiRequestBody(body)) return;
-    if (logged.has(body)) return;
-    logged.add(body);
 
     const sessionId =
       getHeader(init.headers, "x-opencode-session") || currentSessionId;
