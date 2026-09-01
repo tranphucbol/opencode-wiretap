@@ -38,6 +38,20 @@ export function formatRelative(iso: string): string {
   return `${days}d ago`;
 }
 
+/**
+ * USD, with precision that follows the magnitude — a single cheap request can
+ * land near $0.0001 while a session total runs to dollars, and one fixed
+ * precision would either round the former to nothing or bury the latter in
+ * noise.
+ */
+export function formatUsd(v: number): string {
+  if (v <= 0) return "$0";
+  if (v >= 1) return `$${v.toFixed(2)}`;
+  if (v >= 0.01) return `$${v.toFixed(3)}`;
+  if (v >= 0.0001) return `$${v.toFixed(4)}`;
+  return "<$0.0001";
+}
+
 /** Short session id: strip the `ses_` prefix, keep a readable head+tail. */
 export function shortId(id: string): string {
   const core = id.startsWith("ses_") ? id.slice(4) : id;

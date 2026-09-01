@@ -14,6 +14,7 @@ Options:
   -p, --port <n>       port to listen on            (env PORT / API_PORT, default 3001)
   -l, --log-dir <dir>  wiretap capture directory    (env LOG_DIR, default ${DEFAULT_LOG_DIR})
       --db <file>      OpenCode SQLite database     (env OPENCODE_DB)
+      --models <file>  models.dev price table       (env OPENCODE_MODELS)
   -h, --help           show this message
 `;
 
@@ -24,8 +25,9 @@ export interface Options {
 
 /**
  * Resolve runtime options. Precedence: CLI flag > environment > default.
- * `--db` is folded back into OPENCODE_DB because db.ts reads it at import
- * time, so it must be applied before that module is loaded.
+ * `--db` and `--models` are folded back into their environment variables
+ * because db.ts and pricing.ts resolve those paths lazily on first use; going
+ * through the environment keeps one resolution rule instead of two.
  */
 export function parseArgs(argv: string[]): Options | "help" {
   let port: string | undefined;
@@ -52,6 +54,9 @@ export function parseArgs(argv: string[]): Options | "help" {
         break;
       case "--db":
         process.env.OPENCODE_DB = next();
+        break;
+      case "--models":
+        process.env.OPENCODE_MODELS = next();
         break;
       default:
         throw new Error(`unknown option: ${arg}`);

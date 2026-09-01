@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023"],
-    "types": []
+    // Only for `bun:test` in the *.test.ts files. The source itself stays
+    // runtime-agnostic — it is bundled into both a Node CLI and a browser app.
+    "types": ["bun"]
   },
   "include": ["src"]
 }

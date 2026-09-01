@@ -2,14 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023"],
-    "types": ["node"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "allowImportingTsExtensions": false,
-    "declaration": true,
-    "sourceMap": true,
-    "noEmit": false
+    // Bun only, not node alongside it: @types/bun already pulls @types/node in,
+    // and listing both makes DOM-ish globals (`Response`) resolve to two
+    // incompatible declarations. The plugin runs inside OpenCode, on Bun.
+    "types": ["bun"]
   },
-  "include": ["src"],
+  "include": ["src", "scripts"],
   "exclude": ["node_modules", "dist"]
 }

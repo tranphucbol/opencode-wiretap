@@ -14,16 +14,20 @@ import {
   ArrowsInLineVertical,
   ArrowsOutLineVertical,
   Archive,
+  ArrowUDownLeft,
+  Warning,
 } from "@phosphor-icons/react";
 import {
   getRequestMessages,
   getRequestSystem,
   type CapturedRequest,
+  type CapturedResponse,
   type ContentBlock,
+  type CostBreakdown,
   type Message,
   type SystemBlock,
 } from "@wiretap/shared";
-import { formatBytes, formatTime } from "../lib/format.ts";
+import { formatBytes, formatTime, formatUsd } from "../lib/format.ts";
 import { modelFamily, shortModel } from "../lib/model.ts";
 import {
   isSystemPromptText,
@@ -32,7 +36,13 @@ import {
   startsWithSystemIdentity,
 } from "../lib/systemPrompt.ts";
 import type { PromptSegment } from "../lib/systemPrompt.ts";
-import { Spinner, ErrorState, EmptyState, ModelBadge } from "./ui.tsx";
+import {
+  Spinner,
+  ErrorState,
+  EmptyState,
+  ModelBadge,
+  StatusChip,
+} from "./ui.tsx";
 
 const COLLAPSE_CHARS = 600;
 
@@ -41,11 +51,18 @@ export function DetailPane({
   file,
   loading,
   error,
+  cost,
 }: {
   data: CapturedRequest | null;
   file: string | null;
   loading: boolean;
   error: string | null;
+  /**
+   * Priced by the server against its local rate table, so it rides along on
+   * the request summary rather than the capture file — the file itself stores
+   * only what the provider actually said.
+   */
+  cost: CostBreakdown | null;
 }) {
   const [raw, setRaw] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -155,6 +172,10 @@ export function DetailPane({
           {body?.stream != null && <Meta k="stream" v={String(body.stream)} />}
           {data?.timestamp && <Meta k="at" v={formatTime(data.timestamp)} />}
         </div>
+        {/* The Response section sits below the messages, which can be very
+            long. Surface its status up here so a failed call is visible
+            without scrolling. */}
+        {data && <StatusChip status={data.response?.status ?? null} />}
         <div className="ml-auto flex items-center gap-1">
           {!raw && compressedIndices.length > 0 && (
             <button
@@ -249,6 +270,15 @@ export function DetailPane({
             </div>
 
             {tools.length > 0 && <ToolsSection tools={tools} />}
+
+            {data.response ? (
+              <ResponseSection response={data.response} cost={cost} />
+            ) : (
+              <div className="px-1 text-xs text-faint">
+                no response captured — the call may still be in flight, or this
+                capture predates response recording
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -382,6 +412,145 @@ function ToolsSection({
             )}
           </div>
         ))}
+      </div>
+    </Section>
+  );
+}
+
+const STATE_LABEL: Record<CapturedResponse["state"], string> = {
+  complete: "complete",
+  aborted: "aborted mid-stream",
+  error: "error",
+};
+
+/** What came back. Rendered through the same blocks as the request half. */
+function ResponseSection({
+  response,
+  cost,
+}: {
+  response: CapturedResponse;
+  cost: CostBreakdown | null;
+}) {
+  const ok = response.status >= 200 && response.status < 300;
+  const accent = ok
+    ? "var(--color-block-tool-result)"
+    : "var(--color-block-error)";
+  const blocks = response.message?.content ?? [];
+  const usage = response.message?.usage;
+
+  return (
+    <Section
+      title="Response"
+      icon={<ArrowUDownLeft size={13} weight="bold" />}
+      accent={accent}
+      count={blocks.length}
+      defaultOpen
+    >
+      <div className="flex flex-col divide-y divide-border">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-[13px] text-faint">
+          <span
+            className="tnum rounded px-1.5 py-0.5 text-[12px] font-semibold"
+            style={{ color: accent, backgroundColor: `${accent}1a` }}
+          >
+            {response.status}
+          </span>
+          {response.state !== "complete" && (
+            <span className="text-[12px] font-medium text-block-error">
+              {STATE_LABEL[response.state]}
+            </span>
+          )}
+          <Meta k="ttfb" v={`${response.ttfbMs.toLocaleString()} ms`} />
+          <Meta k="stream" v={`${response.durationMs.toLocaleString()} ms`} />
+          {response.message?.stop_reason && (
+            <Meta k="stop" v={response.message.stop_reason} />
+          )}
+          {usage?.input_tokens != null && (
+            <Meta k="in" v={usage.input_tokens.toLocaleString()} />
+          )}
+          {usage?.output_tokens != null && (
+            <Meta k="out" v={usage.output_tokens.toLocaleString()} />
+          )}
+          {usage?.cache_read_input_tokens != null && (
+            <Meta
+              k="cache read"
+              v={usage.cache_read_input_tokens.toLocaleString()}
+            />
+          )}
+          {usage?.cache_creation_input_tokens != null && (
+            <Meta
+              k="cache write"
+              v={usage.cache_creation_input_tokens.toLocaleString()}
+            />
+          )}
+          {usage?.reasoning_tokens != null && (
+            <Meta k="reasoning" v={usage.reasoning_tokens.toLocaleString()} />
+          )}
+        </div>
+
+        {cost && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-[13px] text-faint">
+            <span
+              className="tnum rounded bg-surface-2 px-1.5 py-0.5 text-[12px] font-semibold text-muted"
+              title="estimated from the rates in OpenCode's models.dev cache"
+            >
+              {formatUsd(cost.total)}
+            </span>
+            {cost.input > 0 && <Meta k="in" v={formatUsd(cost.input)} />}
+            {cost.output > 0 && <Meta k="out" v={formatUsd(cost.output)} />}
+            {cost.cacheRead > 0 && (
+              <Meta k="cache read" v={formatUsd(cost.cacheRead)} />
+            )}
+            {cost.cacheWrite > 0 && (
+              <Meta k="cache write" v={formatUsd(cost.cacheWrite)} />
+            )}
+          </div>
+        )}
+
+        {response.error && (
+          <div className="px-3 py-2 text-[13px] text-block-error">
+            {response.error}
+          </div>
+        )}
+
+        {blocks.map((b, i) => (
+          <BlockView key={i} block={b} />
+        ))}
+
+        {blocks.length === 0 && (
+          <div className="px-3 py-2 text-xs text-faint">
+            {ok
+              ? "no assembled message — this provider's response grammar is not one wiretap decodes. The raw body is below."
+              : "no assembled message — a non-2xx body is an error page, not a message. The raw body is below."}
+          </div>
+        )}
+
+        {response.raw && (
+          <div className="px-3 py-2">
+            <SubCollapsible
+              icon={<BracketsAngle size={11} weight="bold" />}
+              label={`raw · ${response.raw.encoding}`}
+              accent="var(--color-muted)"
+              meta={
+                response.raw.truncated
+                  ? `${formatBytes(response.raw.bytes)} · truncated`
+                  : formatBytes(response.raw.bytes)
+              }
+            >
+              {response.raw.truncated && (
+                <div className="mb-1.5 flex items-center gap-1.5 text-[12px] text-block-tool-use">
+                  <Warning size={11} weight="bold" />
+                  stored copy is a prefix — the assembled message above was
+                  built from the whole stream
+                </div>
+              )}
+              <CollapsibleText text={response.raw.text} bare />
+            </SubCollapsible>
+          </div>
+        )}
+
+        {!response.raw && (
+          <div className="px-3 py-2 text-xs text-faint">no body</div>
+        )}
       </div>
     </Section>
   );

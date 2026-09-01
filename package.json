@@ -15,9 +15,10 @@
     "build": "bun run --filter opencode-wiretap build && bun run --filter opencode-wiretap-viewer build",
     "smoke": "bun run scripts/smoke.ts bun && bun run scripts/smoke.ts node",
     "typecheck": "tsc -p tsconfig.json --noEmit && bun run --filter '*' typecheck",
+    "test": "bun test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run format:check && bun run typecheck",
+    "check": "bun run format:check && bun run typecheck && bun run test",
     "clean": "bun run --filter '*' clean"
   },
   "devDependencies": {

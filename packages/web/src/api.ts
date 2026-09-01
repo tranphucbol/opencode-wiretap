@@ -28,7 +28,19 @@ export const api = {
       `/api/sessions/${encodeURIComponent(id)}/${encodeURIComponent(file)}`,
     ),
   config: () =>
-    getJSON<{ logDir: string; dbPath: string; dbFound: boolean }>(
-      "/api/config",
-    ),
+    getJSON<{
+      logDir: string;
+      dbPath: string;
+      dbFound: boolean;
+      modelsPath: string;
+      pricingFound: boolean;
+      costCachePath: string;
+    }>("/api/config"),
+  costStatus: () =>
+    getJSON<{
+      done: number;
+      total: number;
+      running: boolean;
+      costed: number;
+    }>("/api/cost/status"),
 };

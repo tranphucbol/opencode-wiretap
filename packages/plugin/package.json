@@ -32,15 +32,18 @@
   ],
   "scripts": {
     "clean": "rm -rf dist *.tsbuildinfo",
-    "build": "bun run clean && tsc -p tsconfig.json",
+    "build": "bun run scripts/build.ts",
     "prepack": "bun run build",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=0.13.7"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.1.49",
-    "@types/node": "^25.1.0"
+    "@types/bun": "^1.3.14",
+    "@types/node": "^25.1.0",
+    "@wiretap/shared": "workspace:*"
   }
 }

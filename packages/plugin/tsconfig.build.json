@@ -1,0 +1,15 @@
+{
+  // Declaration-only emit for the published package. `scripts/` and tests are
+  // excluded so nothing but the plugin's own surface lands in dist/.
+  // `Bun.build` produces the JavaScript; tsc only produces the .d.ts.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "noEmit": false
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

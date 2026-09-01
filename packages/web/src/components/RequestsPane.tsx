@@ -1,9 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowClockwise, Check, Copy } from "@phosphor-icons/react";
 import type { RequestSummary } from "@wiretap/shared";
-import { formatBytes, formatTime, shortId } from "../lib/format.ts";
+import { formatBytes, formatTime, formatUsd, shortId } from "../lib/format.ts";
 import { modelFamily, shortModel } from "../lib/model.ts";
-import { Spinner, ErrorState, EmptyState, ModelBadge } from "./ui.tsx";
+import {
+  Spinner,
+  ErrorState,
+  EmptyState,
+  ModelBadge,
+  StatusChip,
+  CostChip,
+} from "./ui.tsx";
+
+/** Hover text breaking a row's cost into the buckets that produced it. */
+function costTitle(r: RequestSummary): string {
+  const c = r.cost;
+  if (!c) return "";
+  const parts = [
+    ["input", c.input],
+    ["output", c.output],
+    ["cache read", c.cacheRead],
+    ["cache write", c.cacheWrite],
+  ] as const;
+  const lines = parts
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => `${k}  ${formatUsd(v)}`);
+  return [`${formatUsd(c.total)} estimated`, ...lines].join("\n");
+}
 
 export function RequestsPane({
   sessionId,
@@ -51,6 +74,14 @@ export function RequestsPane({
       : requests;
     return [...filtered].sort((a, b) => a.seq - b.seq);
   }, [requests, modelFilter]);
+
+  // Total for what is actually on screen, so it tracks the model filter.
+  // Null when nothing in view carries a price at all.
+  const shownCost = useMemo(() => {
+    const priced = rows.filter((r) => r.cost != null);
+    if (priced.length === 0) return null;
+    return priced.reduce((sum, r) => sum + (r.cost?.total ?? 0), 0);
+  }, [rows]);
 
   if (!sessionId) {
     return (
@@ -141,11 +172,27 @@ export function RequestsPane({
                 label={shortModel(r.model)}
                 family={modelFamily(r.model)}
               />
-              <span className="ml-auto flex shrink-0 items-center gap-2">
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                <StatusChip status={r.status} />
+                <CostChip
+                  usd={r.cost?.total ?? null}
+                  title={r.cost ? costTitle(r) : undefined}
+                  className="w-14 text-right"
+                />
+                {/* Keep the unit: bare against the message count next to it,
+                    two adjacent numbers read as one ambiguous pair. */}
+                <span
+                  className="tnum w-16 text-right text-[12px] text-faint"
+                  title="output tokens"
+                >
+                  {r.outputTokens != null
+                    ? `${r.outputTokens.toLocaleString()} out`
+                    : ""}
+                </span>
                 <span className="tnum text-[12px] text-faint" title="messages">
                   {r.messageCount} msg
                 </span>
-                <span className="tnum w-14 text-right text-[12px] text-faint">
+                <span className="tnum w-12 text-right text-[12px] text-faint">
                   {formatBytes(r.size)}
                 </span>
               </span>
@@ -153,9 +200,19 @@ export function RequestsPane({
           );
         })}
         {rows.length > 0 && (
-          <div className="tnum px-3 py-2 text-[12px] text-faint">
-            {rows.length} request{rows.length === 1 ? "" : "s"} ·{" "}
-            {formatTime(rows[rows.length - 1].timestamp)}
+          <div className="tnum flex items-center gap-2 px-3 py-2 text-[12px] text-faint">
+            <span>
+              {rows.length} request{rows.length === 1 ? "" : "s"} ·{" "}
+              {formatTime(rows[rows.length - 1].timestamp)}
+            </span>
+            {shownCost != null && (
+              <span
+                className="ml-auto font-medium text-muted"
+                title="sum of the priced requests shown"
+              >
+                {formatUsd(shownCost)}
+              </span>
+            )}
           </div>
         )}
         {!loading && rows.length === 0 && !error && (

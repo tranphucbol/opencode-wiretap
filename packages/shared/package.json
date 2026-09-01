@@ -10,6 +10,10 @@
   "scripts": {
     "build": "echo 'shared is source-only, nothing to build'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test",
     "clean": "rm -rf *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
   }
 }

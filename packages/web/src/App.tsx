@@ -15,6 +15,11 @@ export function App() {
   const [theme, toggleTheme] = useTheme();
   const [logDir, setLogDir] = useState<string>("");
   const [dbFound, setDbFound] = useState<boolean>(true);
+  const [pricingFound, setPricingFound] = useState<boolean>(true);
+  const [costing, setCosting] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
@@ -62,8 +67,34 @@ export function App() {
       .then((c) => {
         setLogDir(c.logDir);
         setDbFound(c.dbFound);
+        setPricingFound(c.pricingFound);
       })
       .catch(() => {});
+  }, [loadSessions]);
+
+  // Cost totals arrive from a background sweep, so poll while it runs and
+  // refresh the session list when it finishes. Without this, a cold cache
+  // shows blank costs until the user happens to hit refresh.
+  useEffect(() => {
+    let cancelled = false;
+    let wasRunning = false;
+    const tick = async () => {
+      try {
+        const s = await api.costStatus();
+        if (cancelled) return;
+        setCosting(s.running ? s : null);
+        if (wasRunning && !s.running) void loadSessions();
+        wasRunning = s.running;
+      } catch {
+        if (!cancelled) setCosting(null);
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [loadSessions]);
 
   const onSelectSession = useCallback(
@@ -109,20 +140,38 @@ export function App() {
             {logDir}
           </span>
         )}
-        {!dbFound && (
-          <span
-            className="ml-auto rounded px-1.5 py-0.5 text-[12px] text-block-tool-use"
-            title="OpenCode DB not found — showing session ids instead of titles. Set OPENCODE_DB to override."
-            style={{ backgroundColor: "var(--model-opus-bg)" }}
-          >
-            titles unavailable
+        <div className="ml-auto flex items-center gap-3">
+          {!dbFound && (
+            <span
+              className="rounded px-1.5 py-0.5 text-[12px] text-block-tool-use"
+              title="OpenCode DB not found — showing session ids instead of titles. Set OPENCODE_DB to override."
+              style={{ backgroundColor: "var(--model-opus-bg)" }}
+            >
+              titles unavailable
+            </span>
+          )}
+          {!pricingFound && (
+            <span
+              className="rounded px-1.5 py-0.5 text-[12px] text-block-tool-use"
+              title="OpenCode's models.dev cache not found — costs unavailable. Set OPENCODE_MODELS to override."
+              style={{ backgroundColor: "var(--model-opus-bg)" }}
+            >
+              costs unavailable
+            </span>
+          )}
+          {costing && (
+            <span
+              className="tnum text-[13px] text-faint"
+              title="costing captures in the background — session totals fill in as it goes"
+            >
+              costing {costing.done.toLocaleString()}
+              {costing.total > 0 && ` / ${costing.total.toLocaleString()}`}
+            </span>
+          )}
+          <span className="tnum text-[13px] text-faint">
+            {sessions.length} sessions
           </span>
-        )}
-        <span
-          className={`tnum text-[13px] text-faint ${dbFound ? "ml-auto" : ""}`}
-        >
-          {sessions.length} sessions
-        </span>
+        </div>
         <button
           onClick={toggleTheme}
           title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
@@ -136,7 +185,9 @@ export function App() {
         </button>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[340px_340px_1fr]">
+      {/* The requests pane is wider than the sessions pane because it carries
+          six columns of per-request metadata, cost among them. */}
+      <div className="grid min-h-0 flex-1 grid-cols-[340px_430px_1fr]">
         <SessionsPane
           sessions={sessions}
           loading={sessionsLoading}
@@ -159,6 +210,7 @@ export function App() {
           file={selectedFile}
           loading={detailLoading}
           error={detailError}
+          cost={requests.find((r) => r.file === selectedFile)?.cost ?? null}
         />
       </div>
     </div>

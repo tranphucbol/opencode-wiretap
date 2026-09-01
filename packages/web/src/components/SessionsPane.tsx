@@ -8,14 +8,16 @@ import {
 } from "@phosphor-icons/react";
 import type { SessionSummary } from "@wiretap/shared";
 import { formatRelative, shortId } from "../lib/format.ts";
-import { Spinner, ErrorState } from "./ui.tsx";
+import { Spinner, ErrorState, CostChip } from "./ui.tsx";
 
-type Sort = "recent" | "count" | "id" | "title";
+type Sort = "recent" | "count" | "cost" | "id" | "title";
 
 interface TreeNode {
   session: SessionSummary;
   children: TreeNode[];
   subtreeLast: string; // max lastModified across subtree (for "recent" sort)
+  /** Sum across the subtree; null when nothing in it has been costed yet. */
+  subtreeCost: number | null;
 }
 
 interface Row {
@@ -33,7 +35,12 @@ function label(s: SessionSummary): string {
 function buildForest(sessions: SessionSummary[]): TreeNode[] {
   const byId = new Map<string, TreeNode>();
   for (const s of sessions) {
-    byId.set(s.id, { session: s, children: [], subtreeLast: s.lastModified });
+    byId.set(s.id, {
+      session: s,
+      children: [],
+      subtreeLast: s.lastModified,
+      subtreeCost: s.cost,
+    });
   }
   const roots: TreeNode[] = [];
   for (const node of byId.values()) {
@@ -53,12 +60,29 @@ function buildForest(sessions: SessionSummary[]): TreeNode[] {
     return last;
   };
   roots.forEach(computeLast);
+
+  // Roll cost up the same way. A subtree is "uncosted" only when nothing in
+  // it has a number yet — one costed child is enough to show a partial total,
+  // which is the honest reading while a sweep is still in flight.
+  const computeCost = (n: TreeNode): number | null => {
+    let sum: number | null = n.session.cost;
+    for (const c of n.children) {
+      const cc = computeCost(c);
+      if (cc != null) sum = (sum ?? 0) + cc;
+    }
+    n.subtreeCost = sum;
+    return sum;
+  };
+  roots.forEach(computeCost);
   return roots;
 }
 
 function comparator(sort: Sort): (a: TreeNode, b: TreeNode) => number {
   return (a, b) => {
     if (sort === "count") return b.session.fileCount - a.session.fileCount;
+    // Uncosted sorts last rather than as zero, so "not known yet" never
+    // masquerades as "cost nothing".
+    if (sort === "cost") return (b.subtreeCost ?? -1) - (a.subtreeCost ?? -1);
     if (sort === "id") return a.session.id.localeCompare(b.session.id);
     if (sort === "title")
       return label(a.session).localeCompare(label(b.session));
@@ -166,6 +190,7 @@ export function SessionsPane({
         >
           <option value="recent">recent</option>
           <option value="count">count</option>
+          <option value="cost">cost</option>
           <option value="title">title</option>
           <option value="id">id</option>
         </select>
@@ -232,7 +257,23 @@ export function SessionsPane({
                 {label(s)}
               </span>
 
-              <span className="tnum ml-auto shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[12px] text-faint">
+              {/* Collapsed rows stand in for their descendants, so they show
+                  the subtree total; expanded ones would double-count it
+                  against the child rows now visible below. */}
+              <CostChip
+                usd={
+                  hasChildren && isCollapsed
+                    ? node.subtreeCost
+                    : (s.cost ?? null)
+                }
+                title={
+                  hasChildren && isCollapsed
+                    ? "estimated cost, including sub-sessions"
+                    : "estimated cost"
+                }
+                className="ml-auto shrink-0"
+              />
+              <span className="tnum shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[12px] text-faint">
                 {s.fileCount}
               </span>
               <span className="tnum shrink-0 text-[12px] text-faint">

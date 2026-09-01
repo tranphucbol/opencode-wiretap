@@ -1,13 +1,5 @@
 import type { ContentBlock, Message, RequestBody } from "./types.ts";
-
-function parseArguments(value: string | undefined): unknown {
-  if (!value) return undefined;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
+import { parseJsonLoose } from "./json.ts";
 
 function normalizeContent(
   content: string | ContentBlock[] | undefined,
@@ -53,7 +45,7 @@ export function getRequestMessages(body: RequestBody | undefined): Message[] {
             type: "tool_use",
             id: item.call_id,
             name: item.name,
-            input: parseArguments(item.arguments),
+            input: parseJsonLoose(item.arguments),
           },
         ],
       };

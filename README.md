@@ -5,8 +5,9 @@ your system prompt, every tool schema, the skill catalog, injected reminders, an
 whatever the last dozen tool calls shoved into context. When an agent starts
 behaving strangely, the answer is usually somewhere in that gap.
 
-Wiretap records every request body [OpenCode](https://opencode.ai) puts on the
-wire, and gives you somewhere decent to read them.
+Wiretap records every request [OpenCode](https://opencode.ai) puts on the wire
+along with the response that came back, and gives you somewhere decent to read
+them.
 
 ![Three-pane viewer](docs/screenshots/three-pane.png)
 
@@ -33,6 +34,22 @@ byte for byte as it was serialized.
 
 ![Raw JSON](docs/screenshots/raw-json.png)
 
+Each capture also carries what came back: the status, time to first byte, stream
+duration, token usage, and the model's reply reassembled into the same blocks as
+the request — text, thinking, tool calls. The raw stream sits behind a toggle
+underneath. Anthropic Messages, OpenAI Chat Completions and OpenAI Responses are
+decoded; anything else keeps its raw body. A `429`, a stream that died
+mid-message, or a malformed tool call all leave evidence now rather than an
+ordinary-looking request and no reply.
+
+And because the usage is there, so is the money. Every request is priced from
+OpenCode's own models.dev cache — the same rates it bills against — broken down
+into fresh input, output, cache reads and cache writes, because on a long agent
+run the cache lines are usually most of the bill. Sessions carry a total, and a
+collapsed parent carries its subagents' spend too, so you can sort the list by
+cost and see which conversation actually cost you something. Anything wiretap
+can't price reads as blank, never as `$0`.
+
 ## Getting started
 
 Add the plugin so there's something to look at:
@@ -54,6 +71,7 @@ That's one process on <http://localhost:3001> serving both the UI and its API.
   -p, --port <n>       port to listen on            (env PORT / API_PORT)
   -l, --log-dir <dir>  wiretap capture directory    (env LOG_DIR)
       --db <file>      OpenCode SQLite database     (env OPENCODE_DB)
+      --models <file>  models.dev price table       (env OPENCODE_MODELS)
 ```
 
 ### From source
@@ -91,9 +109,10 @@ renders them.**
 
 The plugin knows nothing about the other three. It hooks `globalThis.fetch` plus
 OpenCode's `chat.params` (Bedrock brings its own HTTP client and skips the
-global), keeps anything that looks like an LLM call, and drops it on disk. The
-only thing tying it to the server is a file path and a
-`{ timestamp, url, body }` envelope, both written down in
+global), keeps anything that looks like an LLM call, drops it on disk, and tees
+the response so it can write the other half in when the stream ends. The only
+thing tying it to the server is a file path and a
+`{ timestamp, url, body, response? }` envelope, both written down in
 [`packages/plugin/README.md`](packages/plugin/README.md). Change one side and you
 have to change the other.
 
@@ -108,9 +127,10 @@ have to change the other.
 | `bun run build`        | Builds the two publishable packages (viewer build pulls in web)       |
 | `bun run smoke`        | Boots the built viewer under Bun and Node and hits it over HTTP       |
 | `bun run typecheck`    | `tsc --noEmit` across the root scripts and all four packages          |
+| `bun run test`         | `bun test` across the workspace                                       |
 | `bun run format`       | Prettier `--write` over the whole workspace                           |
 | `bun run format:check` | Prettier `--check`, non-mutating, for CI                              |
-| `bun run check`        | `format:check` + `typecheck`                                          |
+| `bun run check`        | `format:check` + `typecheck` + `test`                                 |
 | `bun run clean`        | Removes build output and `*.tsbuildinfo`                              |
 
 Target one package directly with `bun run --filter @wiretap/web build`.
@@ -123,12 +143,14 @@ wrong place.
 
 ## Environment
 
-| Variable      | Default                               | Used by                                |
-| ------------- | ------------------------------------- | -------------------------------------- |
-| `LOG_DIR`     | `~/.config/opencode/logs/wiretap`     | server                                 |
-| `PORT`        | `3001`                                | server                                 |
-| `API_PORT`    | `3001`                                | server (fallback), web (Vite proxy)    |
-| `OPENCODE_DB` | `~/.local/share/opencode/opencode.db` | server (read-only, for session titles) |
+| Variable             | Default                                | Used by                                |
+| -------------------- | -------------------------------------- | -------------------------------------- |
+| `LOG_DIR`            | `~/.config/opencode/logs/wiretap`      | server                                 |
+| `PORT`               | `3001`                                 | server                                 |
+| `API_PORT`           | `3001`                                 | server (fallback), web (Vite proxy)    |
+| `OPENCODE_DB`        | `~/.local/share/opencode/opencode.db`  | server (read-only, for session titles) |
+| `OPENCODE_MODELS`    | `~/.cache/opencode/models.json`        | server (read-only, for cost estimates) |
+| `WIRETAP_COST_CACHE` | `~/.cache/opencode-wiretap/costs.json` | server (memoised per-file costs)       |
 
 CLI flags win over environment variables, which win over the defaults.
 

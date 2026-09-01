@@ -7,9 +7,22 @@ import type {
   SessionSummary,
   RequestSummary,
   CapturedRequest,
+  CostBreakdown,
 } from "@wiretap/shared";
-import { getRequestMessages } from "@wiretap/shared";
+import { getRequestMessages, computeCost } from "@wiretap/shared";
 import { getSessionMeta, dbAvailable, dbPath } from "./db.ts";
+import {
+  catalogue,
+  resolvePricing,
+  pricingAvailable,
+  modelsPath,
+} from "./pricing.ts";
+import {
+  sessionCost,
+  sweepInBackground,
+  costStatus,
+  cachePath,
+} from "./costcache.ts";
 import { parseArgs, USAGE, type Options } from "./config.ts";
 
 /** Parse CLI options, printing usage and exiting on `--help` or bad input. */
@@ -92,9 +105,16 @@ app.get("/api/sessions", async (_req, res) => {
           title: null,
           parentId: null,
           directory: null,
+          cost: sessionCost(dir.name),
         };
       }),
     );
+
+    // Totals come from the background sweep's cache, never from work done
+    // here — this route must stay a shallow scan. Re-arm the sweep so edits
+    // since the last pass get picked up; it no-ops if one is already running,
+    // and with a warm cache it is only a stat sweep.
+    sweepInBackground(LOG_DIR);
 
     // Enrich with titles from OpenCode's DB (single batched, indexed lookup).
     const meta = await getSessionMeta(sessions.map((s) => s.id));
@@ -128,6 +148,9 @@ app.get("/api/sessions/:id", async (req, res) => {
   }
   try {
     const files = (await fs.readdir(dir)).filter((f) => f.endsWith(".json"));
+    // This route already reads and parses every file, so costing here is
+    // nearly free — unlike the sessions route, which must not.
+    const cat = await catalogue();
     const rows: RequestSummary[] = await Promise.all(
       files.map(async (file) => {
         const full = path.join(dir, file);
@@ -137,6 +160,11 @@ app.get("/api/sessions/:id", async (req, res) => {
         let messageCount = 0;
         let timestamp = "";
         let size = 0;
+        // Null rather than 0: a request still in flight, and one written
+        // before responses were captured, genuinely have no status.
+        let status: number | null = null;
+        let outputTokens: number | null = null;
+        let cost: CostBreakdown | null = null;
         try {
           const st = await fs.stat(full);
           size = st.size;
@@ -145,10 +173,29 @@ app.get("/api/sessions/:id", async (req, res) => {
           model = json.body?.model ?? null;
           messageCount = getRequestMessages(json.body).length;
           timestamp = json.timestamp ?? "";
+          status = json.response?.status ?? null;
+          const usage = json.response?.message?.usage;
+          outputTokens = usage?.output_tokens ?? null;
+          if (cat && usage) {
+            const priced = resolvePricing(cat, json.url ?? "", model);
+            if (priced) {
+              cost = computeCost(usage, priced.pricing, priced.convention);
+            }
+          }
         } catch {
           // Corrupt/partial file — still list it with what we have.
         }
-        return { file, seq, timestamp, model, messageCount, size };
+        return {
+          file,
+          seq,
+          timestamp,
+          model,
+          messageCount,
+          size,
+          status,
+          outputTokens,
+          cost,
+        };
       }),
     );
 
@@ -184,7 +231,16 @@ app.get("/api/config", async (_req, res) => {
     logDir: LOG_DIR,
     dbPath: dbPath(),
     dbFound: await dbAvailable(),
+    modelsPath: modelsPath(),
+    pricingFound: await pricingAvailable(),
+    costCachePath: cachePath(),
   });
+});
+
+// Progress of the background cost sweep. Polled by the UI while it runs so a
+// multi-minute first pass over a large corpus is legible rather than silent.
+app.get("/api/cost/status", (_req, res) => {
+  res.json(costStatus());
 });
 
 // Unmatched API routes must 404 as JSON, never fall through to the SPA.
@@ -205,4 +261,7 @@ app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`[wiretap] ${webBundled ? "viewer" : "API"} on ${url}`);
   console.log(`[wiretap] LOG_DIR = ${LOG_DIR}`);
+  // Start costing immediately rather than waiting for the first request, so
+  // a cold cache is already filling by the time the UI asks for sessions.
+  sweepInBackground(LOG_DIR);
 });
